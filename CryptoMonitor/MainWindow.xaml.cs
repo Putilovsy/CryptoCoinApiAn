@@ -24,12 +24,13 @@ namespace CryptoMonitor
     {
         private readonly CryptoApiService _service = new CryptoApiService();
         private List<PricePoint> _currentHistory;
+        private CancellationTokenSource _historyCts;
 
         public async Task LoadCoins()
         {
             try
             {
-                var coins = await _service.GetTopCoinsAsync();
+                var coins = await _service.GetTopCoinsAsync(CancellationToken.None);
                 CoinsTable.ItemsSource = coins;
             }
             catch (Exception ex)
@@ -51,8 +52,6 @@ namespace CryptoMonitor
             double[] times = history
                 .Select(h => h.Time.ToOADate())
                 .ToArray();
-            //double[] prices = new double[] { 15, 4, 10, 8};
-            //double[] times = new double[] { 1, 2, 3, 4 };
             var plt = CryptoPlot.Plot;
 
             plt.Clear();
@@ -72,21 +71,28 @@ namespace CryptoMonitor
 
         private async void CoinsTable_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (CoinsTable.SelectedItem == null) return;
+            if (CoinsTable.SelectedItem is not CryptoCoin coin)
+                return;
 
-            var coin = CoinsTable.SelectedItem as CryptoCoin;
-
-            if(coin == null) return;
+            _historyCts?.Cancel();
+            _historyCts = new CancellationTokenSource();
 
             try
             {
-                var history = await _service.GetCoinHistoryAsync(coin.Id, 7);
+                await Task.Delay(300, _historyCts.Token);
+
+                var history = await _service.GetCoinHistoryAsync( coin.Id, _historyCts.Token, 7);
+
                 _currentHistory = history;
                 DrawChart(history);
             }
+            catch (TaskCanceledException)
+            {
+                // запрос отменён
+            }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Ошибка загрузки истории", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(ex.Message);
             }
 
         }

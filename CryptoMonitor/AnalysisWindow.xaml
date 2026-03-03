@@ -8,7 +8,16 @@
         WindowStartupLocation="CenterOwner">
 
     <Grid>
-        <ScottPlot:WpfPlot x:Name="AnalysisPlot" Margin="10"/>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="3*" />
+            <RowDefinition Height="2*" />
+        </Grid.RowDefinitions>
+
+        <!-- Верхний график -->
+        <ScottPlot:WpfPlot x:Name="PricePlot" Grid.Row="0" Margin="5"/>
+
+        <!-- Нижний график RSI -->
+        <ScottPlot:WpfPlot x:Name="RsiPlot" Grid.Row="1" Margin="5"/>
     </Grid>
 
 </Window>
