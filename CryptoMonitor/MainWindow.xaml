@@ -16,18 +16,15 @@
         </Grid.RowDefinitions>
 
         <!-- Таблица -->
-        <DataGrid x:Name="CoinsTable"
-                  Grid.Column="0"
-                  Grid.Row="0"
-                  AutoGenerateColumns="True"
-                  Margin="5"
-                  SelectionChanged="CoinsTable_SelectionChanged"/>
+        <DataGrid ItemsSource="{Binding Coins}"
+                  SelectedItem="{Binding SelectedCoin}"
+                  AutoGenerateColumns="True"/>
 
         <Button Content="Анализ"
                 Grid.Row="1"
                 Grid.Column="1"
                 Margin="5"
-                Click="OpenAnalysis_Click"/>
+                Command="{Binding OpenAnalysisCommand}"/>
 
         <!--График-->
         <ScottPlot:WpfPlot x:Name="CryptoPlot"

@@ -16,7 +16,6 @@
 
   <ItemGroup>
     <Folder Include="Views\" />
-    <Folder Include="VeiwModels\" />
   </ItemGroup>
 
 </Project>

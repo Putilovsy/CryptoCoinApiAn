@@ -127,7 +127,6 @@ namespace CryptoMonitor.Services
             }
             catch
             {
-                
                 return null;
             }
             finally
