@@ -4,6 +4,8 @@
              xmlns:local="clr-namespace:CryptoMonitor"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+        
+        <local:InverseBoolConverter x:Key="InverseBoolConverter"/>
     </Application.Resources>
 </Application>
