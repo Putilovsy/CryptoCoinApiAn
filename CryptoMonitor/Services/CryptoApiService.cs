@@ -134,5 +134,41 @@ namespace CryptoMonitor.Services
                 _semaphore.Release();
             }
         }
+
+        public async Task<List<OhlcPoint>> GetOhlcAsync(string coinId, CancellationToken token, int days = 7)
+        {
+            string url =
+                $"https://api.coingecko.com/api/v3/coins/{coinId}/ohlc" +
+                $"?vs_currency=usd&days={days}";
+
+            var response = await SafeGetAsync(url, token);
+            if (response == null)
+                return new List<OhlcPoint>();
+
+            string json = await response.Content.ReadAsStringAsync();
+
+            var raw = JsonConvert.DeserializeObject<List<List<double>>>(json);
+
+            var result = new List<OhlcPoint>();
+
+            if (raw != null)
+            {
+                foreach (var item in raw)
+                {
+                    result.Add(new OhlcPoint
+                    {
+                        Time = DateTimeOffset
+                            .FromUnixTimeMilliseconds((long)item[0])
+                            .LocalDateTime,
+                        Open = item[1],
+                        High = item[2],
+                        Low = item[3],
+                        Close = item[4]
+                    });
+                }
+            }
+
+            return result;
+        }
     }
 }

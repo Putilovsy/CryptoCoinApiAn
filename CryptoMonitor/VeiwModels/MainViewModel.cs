@@ -38,6 +38,17 @@ namespace CryptoMonitor.ViewModels
             }
         }
 
+        private List<OhlcPoint> _ohlc;
+        public List<OhlcPoint> Ohlc
+        {
+            get => _ohlc;
+            set
+            {
+                _ohlc = value;
+                OnPropertyChanged();
+            }
+        }
+
         public ICommand LoadCoinsCommand { get; }
         public ICommand LoadHistoryCommand { get; }
         public ICommand OpenAnalysisCommand { get; }
@@ -73,6 +84,11 @@ namespace CryptoMonitor.ViewModels
                 await Task.Delay(400, _cts.Token);
 
                 History = await _service.GetCoinHistoryAsync(
+                    SelectedCoin.Id,
+                    _cts.Token,
+                    7);
+
+                Ohlc = await _service.GetOhlcAsync(
                     SelectedCoin.Id,
                     _cts.Token,
                     7);
