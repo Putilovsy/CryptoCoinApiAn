@@ -12,6 +12,21 @@ namespace CryptoMonitor
             InitializeComponent();
             DrawAnalysis(history);
         }
+        private void ApplyDarkStyle(ScottPlot.Plot plt)
+        {
+            var panelDark = ScottPlot.Color.FromHex("#1C2541");
+            var bgDark = ScottPlot.Color.FromHex("#0B132B");
+            var textMuted = ScottPlot.Color.FromHex("#8D99AE");
+            var borderColor = ScottPlot.Color.FromHex("#2B3655");
+
+            plt.FigureBackground.Color = panelDark;
+
+            plt.DataBackground.Color = bgDark;
+
+            plt.Axes.Color(textMuted);
+
+            plt.Grid.MajorLineColor = borderColor;
+        }
 
         private void DrawAnalysis(List<PricePoint> history)
         {
@@ -31,6 +46,7 @@ namespace CryptoMonitor
             pricePlot.Axes.AutoScale();
             pricePlot.Title("Price + EMA");
 
+            ApplyDarkStyle(pricePlot);
             PricePlot.Refresh();
 
             // ====== RSI GRAPH ======
@@ -43,6 +59,7 @@ namespace CryptoMonitor
             rsiPlot.Axes.SetLimits(null, null, 0, 100);
             rsiPlot.Title("RSI (14)");
 
+            ApplyDarkStyle(rsiPlot);
             RsiPlot.Refresh();
         }
 

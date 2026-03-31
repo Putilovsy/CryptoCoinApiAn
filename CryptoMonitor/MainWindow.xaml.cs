@@ -8,6 +8,7 @@ namespace CryptoMonitor
     public partial class MainWindow : Window
     {
         private readonly MainViewModel _vm = new();
+        private bool _isCandlestick = false;
 
         public MainWindow()
         {
@@ -16,20 +17,33 @@ namespace CryptoMonitor
 
             Loaded += async (_, _) => await _vm.LoadCoins();
 
-           
-
             _vm.PropertyChanged += (s, e) =>
             {
-                if (e.PropertyName == "History")
+                if (e.PropertyName == "History" && !_isCandlestick)
                 {
                     DrawChart(_vm.History);
                 }
-
-                if (e.PropertyName == "Ohlc")
+                else if (e.PropertyName == "Ohlc" && _isCandlestick)
                 {
                     DrawCandles(_vm.Ohlc);
                 }
             };
+        }
+
+        private void ApplyDarkStyle(ScottPlot.Plot plt)
+        {
+            var panelDark = ScottPlot.Color.FromHex("#1C2541");
+            var bgDark = ScottPlot.Color.FromHex("#0B132B");
+            var textMuted = ScottPlot.Color.FromHex("#8D99AE");
+            var borderColor = ScottPlot.Color.FromHex("#2B3655");
+
+            plt.FigureBackground.Color = panelDark;
+
+            plt.DataBackground.Color = bgDark;
+            
+            plt.Axes.Color(textMuted);
+
+            plt.Grid.MajorLineColor = borderColor;
         }
 
         private void DrawChart(List<PricePoint> history)
@@ -38,11 +52,13 @@ namespace CryptoMonitor
             double[] times = history
                 .Select(h => h.Time.ToOADate())
                 .ToArray();
-            var plt = CryptoPlot.Plot;
 
+            var plt = CryptoPlot.Plot;
             plt.Clear();
 
-            plt.Add.Scatter(times, prices);
+            var scatter = plt.Add.Scatter(times, prices);
+
+            scatter.Color = ScottPlot.Color.FromHex("#5BC0BE");
 
             plt.Axes.DateTimeTicksBottom();
             plt.Axes.AutoScale();
@@ -51,8 +67,9 @@ namespace CryptoMonitor
             plt.YLabel("USD");
             plt.XLabel("Time");
 
-            CryptoPlot.Refresh();
+            ApplyDarkStyle(plt);
 
+            CryptoPlot.Refresh();
         }
 
         private void DrawCandles(List<OhlcPoint> ohlc)
@@ -69,7 +86,7 @@ namespace CryptoMonitor
                 low: x.Low,
                 close: x.Close,
                 start: x.Time,
-                span: TimeSpan.FromMinutes(60)
+                span: TimeSpan.FromHours(4)
             )).ToArray();
 
             plt.Add.Candlestick(candles);
@@ -81,25 +98,28 @@ namespace CryptoMonitor
             plt.YLabel("USD");
             plt.XLabel("Time");
 
+            ApplyDarkStyle(plt);
+
             CryptoPlot.Refresh();
         }
-        private void ChartTypeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+
+        private void ToggleChartBtn_Click(object sender, RoutedEventArgs e)
         {
             if (_vm.History == null || _vm.History.Count == 0)
                 return;
 
-            var selected = (ChartTypeCombo.SelectedItem as ComboBoxItem)?.Content.ToString();
+            _isCandlestick = !_isCandlestick; // Меняем состояние
 
-            switch (selected)
+            if (_isCandlestick)
             {
-                case "Line":
-                    DrawChart(_vm.History);
-                    break;
-
-                case "Candlestick":
-                    if (_vm.Ohlc != null && _vm.Ohlc.Count > 0)
-                        DrawCandles(_vm.Ohlc);
-                    break;
+                ToggleChartBtn.Content = "📈 В линию"; // Меняем текст кнопки для возврата
+                if (_vm.Ohlc != null && _vm.Ohlc.Count > 0)
+                    DrawCandles(_vm.Ohlc);
+            }
+            else
+            {
+                ToggleChartBtn.Content = "📊 В свечи"; // Меняем текст кнопки для возврата
+                DrawChart(_vm.History);
             }
         }
     }

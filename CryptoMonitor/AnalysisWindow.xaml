@@ -2,22 +2,30 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ScottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
-        Title="Analysis"
-        Height="500"
-        Width="800"
-        WindowStartupLocation="CenterOwner">
+        Title="Глубокий анализ (Price &amp; RSI)"
+        Height="600"
+        Width="900"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BgDark}">
 
-    <Grid>
+    <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="3*" />
             <RowDefinition Height="2*" />
         </Grid.RowDefinitions>
 
-        <!-- Верхний график -->
-        <ScottPlot:WpfPlot x:Name="PricePlot" Grid.Row="0" Margin="5"/>
+        <Border Grid.Row="0" Margin="5" 
+                Background="{StaticResource PanelDark}" 
+                CornerRadius="8" 
+                BorderBrush="{StaticResource BorderColor}" BorderThickness="1">
+            <ScottPlot:WpfPlot x:Name="PricePlot" Margin="10"/>
+        </Border>
 
-        <!-- Нижний график RSI -->
-        <ScottPlot:WpfPlot x:Name="RsiPlot" Grid.Row="1" Margin="5"/>
+        <Border Grid.Row="1" Margin="5" 
+                Background="{StaticResource PanelDark}" 
+                CornerRadius="8" 
+                BorderBrush="{StaticResource BorderColor}" BorderThickness="1">
+            <ScottPlot:WpfPlot x:Name="RsiPlot" Margin="10"/>
+        </Border>
     </Grid>
-
 </Window>

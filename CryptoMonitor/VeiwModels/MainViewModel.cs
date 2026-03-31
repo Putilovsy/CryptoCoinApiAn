@@ -33,7 +33,7 @@ namespace CryptoMonitor.ViewModels
 
                 if (value != null)
                 {
-                    // Мгновенно показываем данные из кэша если есть
+                    
                     if (_dataCache.TryGetValue(value.Id, out var cached))
                     {
                         History = cached.History;
@@ -42,7 +42,7 @@ namespace CryptoMonitor.ViewModels
                     }
                     else
                     {
-                        // Если данных нет, загружаем
+                        
                         System.Diagnostics.Debug.WriteLine($"Нет данных в кэше для {value.Id}, загружаем");
                         _ = LoadHistoryForCoin(value.Id);
                     }
@@ -124,13 +124,9 @@ namespace CryptoMonitor.ViewModels
                 if (Coins.Any() && SelectedCoin == null)
                 {
                     SelectedCoin = Coins.First();
-
-                    // Загружаем данные для первой монеты
-                    await LoadHistoryForCoin(SelectedCoin.Id);
-
-                    // Запускаем фоновую предзагрузку для остальных монет
-                    var remainingCoins = Coins.Skip(1).Select(c => c.Id).ToList();
-                    _ = PreloadRemainingCoins(remainingCoins);
+                    
+                    await LoadHistoryForCoin(SelectedCoin.Id);                  
+                   
                 }
             }
             catch (Exception ex)
@@ -142,44 +138,6 @@ namespace CryptoMonitor.ViewModels
             {
                 IsLoadingCoins = false;
                 LoadingMessage = "";
-            }
-        }
-
-        private async Task PreloadRemainingCoins(List<string> coinIds)
-        {
-            if (_isPreloading) return;
-            _isPreloading = true;
-
-            try
-            {
-                int loadedCount = 0;
-                foreach (var coinId in coinIds)
-                {
-                    if (_dataCache.ContainsKey(coinId))
-                        continue;
-
-                    // Ждем 3 секунды между загрузками, чтобы не превысить лимит
-                    await Task.Delay(3000);
-
-                    try
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Начинаем предзагрузку: {coinId}");
-                        var history = await _service.GetCoinHistoryAsync(coinId, CancellationToken.None, 7);
-                        var ohlc = await _service.GetOhlcAsync(coinId, CancellationToken.None, 7);
-                        _dataCache[coinId] = (history, ohlc);
-                        loadedCount++;
-                        System.Diagnostics.Debug.WriteLine($"Предзагружена монета: {coinId} ({loadedCount}/{coinIds.Count}) - History:{history.Count}, Ohlc:{ohlc.Count}");
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Ошибка предзагрузки {coinId}: {ex.Message}");
-                    }
-                }
-                System.Diagnostics.Debug.WriteLine($"Предзагрузка завершена. Загружено {loadedCount} из {coinIds.Count} монет");
-            }
-            finally
-            {
-                _isPreloading = false;
             }
         }
 
@@ -203,13 +161,17 @@ namespace CryptoMonitor.ViewModels
             try
             {
                 System.Diagnostics.Debug.WriteLine($"Загружаем данные для {coinId}");
-                var historyTask = _service.GetCoinHistoryAsync(coinId, _cts.Token, 7);
-                var ohlcTask = _service.GetOhlcAsync(coinId, _cts.Token, 7);
-                await Task.WhenAll(historyTask, ohlcTask);
 
-                History = await historyTask;
-                Ohlc = await ohlcTask;
+                
+                var history = await _service.GetCoinHistoryAsync(coinId, _cts.Token, 7);
+
+                History = history;
+
+                // Генерируем свечи локально 
+                Ohlc = GenerateOhlcFromHistory(History, TimeSpan.FromHours(4));
+
                 _dataCache[coinId] = (History, Ohlc);
+
                 System.Diagnostics.Debug.WriteLine($"Данные загружены для {coinId}: History:{History.Count}, Ohlc:{Ohlc.Count}");
             }
             catch (TaskCanceledException) { }
@@ -230,6 +192,40 @@ namespace CryptoMonitor.ViewModels
 
             var window = new AnalysisWindow(History);
             window.ShowDialog();
+        }
+
+        private List<OhlcPoint> GenerateOhlcFromHistory(List<PricePoint> history, TimeSpan timeSpan)
+        {
+            if (history == null || !history.Any())
+                return new List<OhlcPoint>();
+
+            var ohlcList = new List<OhlcPoint>();
+
+            // Группируем точки по временным интервалам
+            var grouped = history.GroupBy(p => p.Time.Ticks / timeSpan.Ticks);
+
+            foreach (var group in grouped)
+            {
+                // Сортируем точки внутри группы по времени, чтобы точно знать, где начало, а где конец
+                var points = group.OrderBy(p => p.Time).ToList();
+
+                var ohlc = new OhlcPoint
+                {
+                    // Берем время начала свечи
+                    Time = new DateTime(group.Key * timeSpan.Ticks),
+                    // Открытие - первая цена в отрезке
+                    Open = points.First().Price,
+                    // Закрытие - последняя цена в отрезке
+                    Close = points.Last().Price,
+                    // Максимум и минимум
+                    High = points.Max(p => p.Price),
+                    Low = points.Min(p => p.Price)
+                };
+
+                ohlcList.Add(ohlc);
+            }
+
+            return ohlcList;
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
