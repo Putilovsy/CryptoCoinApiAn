@@ -1,23 +1,167 @@
-﻿using CryptoMonitor.Models;
+using CryptoMonitor.Models;
 using CryptoMonitor.Services;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
-using CryptoMonitor.Helpers;
+using System.Windows.Data;
 using System.Windows;
+using CryptoMonitor.Helpers;
+using System.IO;
+using System.Text.Json;
 
 namespace CryptoMonitor.ViewModels
 {
     public class MainViewModel : INotifyPropertyChanged
     {
         private readonly CryptoApiService _service = new();
-        private readonly Dictionary<string, (List<PricePoint> History, List<OhlcPoint> Ohlc)> _dataCache = new();
+        private readonly Dictionary<string, (List<PricePoint> History, List<OhlcPoint> Ohlc, TimeSpan Span)> _dataCache = new();
         private string _currentCoinId = "";
         private CancellationTokenSource _cts;
-        private bool _isPreloading = false;
 
         public ObservableCollection<CryptoCoin> Coins { get; set; } = new();
+        public ICollectionView FilteredCoins { get; private set; }
+
+        private string _searchText = "";
+        public string SearchText
+        {
+            get => _searchText;
+            set
+            {
+                _searchText = value;
+                OnPropertyChanged();
+                FilteredCoins?.Refresh();
+            }
+        }
+
+        private bool _showOnlyPortfolio;
+        public bool ShowOnlyPortfolio
+        {
+            get => _showOnlyPortfolio;
+            set
+            {
+                _showOnlyPortfolio = value;
+                OnPropertyChanged();
+                FilteredCoins?.Refresh();
+            }
+        }
+
+        private bool FilterCoinsOverride(object item)
+        {
+            if (item is CryptoCoin coin)
+            {
+                bool matchSearch = string.IsNullOrWhiteSpace(_searchText) || 
+                                   (coin.Symbol?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) == true) || 
+                                   (coin.Name?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) == true);
+                                   
+                bool matchPortfolio = !_showOnlyPortfolio || coin.IsFavorite;
+                
+                return matchSearch && matchPortfolio;
+            }
+            return false;
+        }
+
+        private const string PortfolioFile = "portfolio.json";
+        
+        private void SavePortfolio()
+        {
+            try
+            {
+                var favorites = Coins.Where(c => c.IsFavorite).Select(c => c.Id).ToList();
+                File.WriteAllText(PortfolioFile, JsonSerializer.Serialize(favorites));
+            }
+            catch { }
+        }
+
+        private void LoadPortfolio()
+        {
+            try
+            {
+                if (File.Exists(PortfolioFile))
+                {
+                    var json = File.ReadAllText(PortfolioFile);
+                    var favorites = JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>();
+                    foreach (var coin in Coins)
+                    {
+                        if (favorites.Contains(coin.Id))
+                        {
+                            coin.IsFavorite = true;
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private void Coin_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(CryptoCoin.IsFavorite))
+            {
+                SavePortfolio();
+                if (ShowOnlyPortfolio)
+                {
+                    FilteredCoins?.Refresh();
+                }
+            }
+        }
+
+        private int _selectedDays = 7;
+        public int SelectedDays
+        {
+            get => _selectedDays;
+            set
+            {
+                if (_selectedDays != value)
+                {
+                    _selectedDays = value;
+                    OnPropertyChanged();
+                    DebouncedLoadHistory();
+                }
+            }
+        }
+
+        // Вызов при выборе другой монеты
+        private async Task SwitchCoinAsync(string coinId)
+        {
+            if (string.IsNullOrEmpty(coinId)) return;
+
+            _cts?.Cancel();
+            _cts = new CancellationTokenSource();
+            var token = _cts.Token;
+
+            IsLoadingCoins = true;
+            LoadingMessage = "Загрузка графика...";
+
+            await ProcessHistoryLoadAsync(coinId, false, token);
+
+            if (_cts.Token == token)
+                IsLoadingCoins = false;
+        }
+
+        // Вызов при переключении таймфрейма (с дебаунсом)
+        private async void DebouncedLoadHistory()
+        {
+            _cts?.Cancel();
+            _cts = new CancellationTokenSource();
+            var token = _cts.Token;
+
+            IsLoadingCoins = true;
+            LoadingMessage = "Загрузка графика...";
+
+            try
+            {
+                await Task.Delay(500, token); 
+                await ProcessHistoryLoadAsync(_currentCoinId, true, token);
+            }
+            catch (TaskCanceledException) { }
+            finally
+            {
+                if (_cts.Token == token)
+                    IsLoadingCoins = false;
+            }
+        }
+
+        public TimeSpan CurrentOhlcSpan { get; private set; } = TimeSpan.FromHours(4);
 
         private CryptoCoin _selectedCoin;
         public CryptoCoin SelectedCoin
@@ -33,19 +177,7 @@ namespace CryptoMonitor.ViewModels
 
                 if (value != null)
                 {
-                    
-                    if (_dataCache.TryGetValue(value.Id, out var cached))
-                    {
-                        History = cached.History;
-                        Ohlc = cached.Ohlc;
-                        System.Diagnostics.Debug.WriteLine($"Данные из кэша для {value.Id}: History={History?.Count}, Ohlc={Ohlc?.Count}");
-                    }
-                    else
-                    {
-                        
-                        System.Diagnostics.Debug.WriteLine($"Нет данных в кэше для {value.Id}, загружаем");
-                        _ = LoadHistoryForCoin(value.Id);
-                    }
+                    _ = SwitchCoinAsync(value.Id);
                 }
             }
         }
@@ -101,6 +233,8 @@ namespace CryptoMonitor.ViewModels
 
         public MainViewModel()
         {
+            FilteredCoins = CollectionViewSource.GetDefaultView(Coins);
+            FilteredCoins.Filter = FilterCoinsOverride;
             LoadCoinsCommand = new RelayCommand(async _ => await LoadCoins());
             OpenAnalysisCommand = new RelayCommand(async _ => await OpenAnalysis());
             _ = LoadCoins();
@@ -119,13 +253,18 @@ namespace CryptoMonitor.ViewModels
 
                 Coins.Clear();
                 foreach (var coin in coins)
+                {
+                    coin.PropertyChanged += Coin_PropertyChanged;
                     Coins.Add(coin);
+                }
+
+                LoadPortfolio();
 
                 if (Coins.Any() && SelectedCoin == null)
                 {
                     SelectedCoin = Coins.First();
                     
-                    await LoadHistoryForCoin(SelectedCoin.Id);                  
+                    _ = SwitchCoinAsync(SelectedCoin.Id);
                    
                 }
             }
@@ -141,38 +280,50 @@ namespace CryptoMonitor.ViewModels
             }
         }
 
-        private async Task LoadHistoryForCoin(string coinId)
+        private async Task ProcessHistoryLoadAsync(string coinId, bool forceRefresh, CancellationToken token)
         {
             if (string.IsNullOrEmpty(coinId))
                 return;
 
-            if (_dataCache.TryGetValue(coinId, out var cached))
+            _currentCoinId = coinId;
+            string cacheKey = $"{coinId}_{SelectedDays}";
+
+            if (!forceRefresh && _dataCache.TryGetValue(cacheKey, out var cached))
             {
+                CurrentOhlcSpan = cached.Span;
                 History = cached.History;
                 Ohlc = cached.Ohlc;
-                _currentCoinId = coinId;
                 return;
             }
 
-            _currentCoinId = coinId;
-            _cts?.Cancel();
-            _cts = new CancellationTokenSource();
-
             try
             {
-                System.Diagnostics.Debug.WriteLine($"Загружаем данные для {coinId}");
-
+                System.Diagnostics.Debug.WriteLine($"Загружаем данные для {cacheKey}");
                 
-                var history = await _service.GetCoinHistoryAsync(coinId, _cts.Token, 7);
+                var history = await _service.GetCoinHistoryAsync(coinId, token, SelectedDays);
 
+                if (token.IsCancellationRequested || _currentCoinId != coinId) 
+                    return;
+
+                if (history == null || history.Count == 0)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Пустой результат от API для {cacheKey} (Возможно 429 Limit)");
+                    return;
+                }
+
+                TimeSpan span = TimeSpan.FromHours(4);
+                if (SelectedDays == 1) span = TimeSpan.FromMinutes(30);
+                else if (SelectedDays == 7) span = TimeSpan.FromHours(4);
+                else if (SelectedDays == 30) span = TimeSpan.FromDays(1);
+                else if (SelectedDays >= 365) span = TimeSpan.FromDays(7);
+
+                CurrentOhlcSpan = span;
                 History = history;
+                Ohlc = GenerateOhlcFromHistory(History, span);
 
-                // Генерируем свечи локально 
-                Ohlc = GenerateOhlcFromHistory(History, TimeSpan.FromHours(4));
+                _dataCache[cacheKey] = (History, Ohlc, span);
 
-                _dataCache[coinId] = (History, Ohlc);
-
-                System.Diagnostics.Debug.WriteLine($"Данные загружены для {coinId}: History:{History.Count}, Ohlc:{Ohlc.Count}");
+                System.Diagnostics.Debug.WriteLine($"Данные загружены для {cacheKey}: History:{History.Count}, Ohlc:{Ohlc.Count}");
             }
             catch (TaskCanceledException) { }
             catch (Exception ex)

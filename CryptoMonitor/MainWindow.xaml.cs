@@ -1,4 +1,4 @@
-﻿using CryptoMonitor.Models;
+using CryptoMonitor.Models;
 using CryptoMonitor.ViewModels;
 using System.Windows;
 using System.Windows.Controls;
@@ -86,7 +86,7 @@ namespace CryptoMonitor
                 low: x.Low,
                 close: x.Close,
                 start: x.Time,
-                span: TimeSpan.FromHours(4)
+                span: _vm.CurrentOhlcSpan
             )).ToArray();
 
             plt.Add.Candlestick(candles);

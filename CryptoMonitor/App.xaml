@@ -1,11 +1,14 @@
-﻿<Application x:Class="CryptoMonitor.App"
+<Application x:Class="CryptoMonitor.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:CryptoMonitor"
+             xmlns:helpers="clr-namespace:CryptoMonitor.Helpers"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
         <local:InverseBoolConverter x:Key="InverseBoolConverter"/>
+        <helpers:ChangeColorConverter x:Key="ChangeColorConverter"/>
+        <helpers:EqualityConverter x:Key="EqualityConverter"/>
 
         <SolidColorBrush x:Key="BgDark" Color="#0B132B"/>
         <SolidColorBrush x:Key="PanelDark" Color="#1C2541"/>
