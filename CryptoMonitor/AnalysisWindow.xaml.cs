@@ -5,6 +5,7 @@ using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 
 namespace CryptoMonitor
 {
@@ -160,19 +161,53 @@ namespace CryptoMonitor
                 var (macd, signal, hist) = CalculateMACD(prices, 12, 26, 9);
 
                 var sb = new StringBuilder();
-                sb.AppendLine("Date;Price_USD;EMA_14;RSI_14;Bollinger_Up;Bollinger_Down;MACD;MACD_Signal;MACD_Hist");
+                sb.AppendLine("sep=,"); // Force Excel to use comma separator
+                sb.AppendLine("Date,Price_USD,EMA_14,RSI_14,Bollinger_Up,Bollinger_Down,MACD,MACD_Signal,MACD_Hist");
 
                 for (int i = 0; i < _history.Count; i++)
                 {
-                    // Делаем явное приведение культур, чтобы точки с запятой в числах не мешали, либо используем InvariantCulture
                     string line = string.Format(System.Globalization.CultureInfo.InvariantCulture,
-                        "{0:yyyy-MM-dd HH:mm};{1:F4};{2:F4};{3:F4};{4:F4};{5:F4};{6:F4};{7:F4};{8:F4}",
+                        "{0:yyyy-MM-dd HH:mm},{1:F4},{2:F4},{3:F4},{4:F4},{5:F4},{6:F4},{7:F4},{8:F4}",
                         _history[i].Time, prices[i], ema[i], rsi[i], upper[i], lower[i], macd[i], signal[i], hist[i]);
                     sb.AppendLine(line);
                 }
 
-                File.WriteAllText(dlg.FileName, sb.ToString(), Encoding.UTF8);
+                File.WriteAllText(dlg.FileName, sb.ToString(), new UTF8Encoding(true));
                 MessageBox.Show("Данные (CSV) успешно сохранены!", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
+        private string GetIndicatorDescription()
+        {
+            int idx = AnalysisTypeCombo.SelectedIndex;
+            return idx switch
+            {
+                0 => "EMA (Exponential Moving Average) — экспоненциальная скользящая средняя.\n" +
+                     "Показывает среднюю цену за период с большим весом последних данных.\n" +
+                     "Помогает определить направление тренда: если цена выше EMA — тренд восходящий, ниже — нисходящий.",
+                1 => "Полосы Боллинджера — индикатор волатильности рынка.\n" +
+                     "Сужение полос означает спокойный рынок, расширение — рост волатильности.\n" +
+                     "Пробитие верхней полосы может сигнализировать о перекупленности,\nнижней — о перепроданности актива.",
+                2 => "RSI (Relative Strength Index) — индекс относительной силы.\n" +
+                     "Значение выше 70 — актив перекуплен (возможен разворот вниз).\n" +
+                     "Значение ниже 30 — актив перепродан (возможен разворот вверх).\n" +
+                     "Диапазон 30–70 считается нейтральной зоной.",
+                3 => "MACD (Moving Average Convergence/Divergence) — схождение/расхождение скользящих средних.\n" +
+                     "Пересечение линии MACD и сигнальной линии снизу вверх — сигнал к покупке.\n" +
+                     "Пересечение сверху вниз — сигнал к продаже.\n" +
+                     "Гистограмма показывает силу текущего тренда.",
+                _ => "Выберите индикатор для отображения подсказки."
+            };
+        }
+
+
+        private void BtnIndicatorHelp_Click(object sender, RoutedEventArgs e)
+        {
+            if (HelpPopup != null && HelpPopupText != null)
+            {
+                HelpPopupText.Text = GetIndicatorDescription();
+                HelpPopup.PlacementTarget = BtnIndicatorHelp;
+                HelpPopup.IsOpen = !HelpPopup.IsOpen;
             }
         }
 

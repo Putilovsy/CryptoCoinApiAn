@@ -103,7 +103,66 @@
                 CornerRadius="8" 
                 BorderBrush="{StaticResource BorderColor}" 
                 BorderThickness="1">
-            <ScottPlot:WpfPlot x:Name="MainPlot" Margin="10"/>
+            <Grid>
+                <ScottPlot:WpfPlot x:Name="MainPlot" Margin="10"/>
+                
+                <!-- Кнопка подсказки в углу графика -->
+                <Button x:Name="BtnIndicatorHelp"
+                        Click="BtnIndicatorHelp_Click"
+                        HorizontalAlignment="Right" VerticalAlignment="Top"
+                        Margin="0,20,20,0"
+                        Width="26" Height="26"
+                        Content="?"
+                        Cursor="Hand"
+                        Padding="0"
+                        ToolTip="Что показывает этот индикатор?">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Background" Value="#3A506B"/>
+                            <Setter Property="Foreground" Value="{StaticResource TextMain}"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Setter Property="FontSize" Value="14"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="border" 
+                                                Background="{TemplateBinding Background}" 
+                                                BorderBrush="{StaticResource TextMuted}" 
+                                                BorderThickness="1" 
+                                                CornerRadius="13">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,1"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="border" Property="Background" Value="{StaticResource AccentHover}"/>
+                                                <Setter Property="Foreground" Value="#0B132B"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </Button.Style>
+                </Button>
+
+                <!-- Вспливающая подсказка -->
+                <Popup x:Name="HelpPopup" StaysOpen="False" AllowsTransparency="True" Placement="Left">
+                    <Border Background="{StaticResource PanelDark}" 
+                            BorderBrush="{StaticResource AccentHover}" 
+                            BorderThickness="1" 
+                            CornerRadius="8" 
+                            MaxWidth="350" Padding="15">
+                        <StackPanel>
+                            <TextBlock Text="О индикаторе" Foreground="{StaticResource AccentHover}" FontWeight="Bold" Margin="0,0,0,8"/>
+                            <TextBlock x:Name="HelpPopupText" 
+                                       TextWrapping="Wrap" 
+                                       Foreground="{StaticResource TextMain}" 
+                                       FontSize="13" 
+                                       LineHeight="18"/>
+                        </StackPanel>
+                    </Border>
+                </Popup>
+            </Grid>
         </Border>
     </Grid>
 </Window>
