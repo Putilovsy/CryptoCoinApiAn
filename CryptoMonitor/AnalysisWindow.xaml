@@ -80,6 +80,9 @@
                         <ComboBoxItem Content="Полосы Боллинджера"/>
                         <ComboBoxItem Content="Индикатор RSI"/>
                         <ComboBoxItem Content="Индикатор MACD"/>
+                        <ComboBoxItem Content="Parabolic SAR"/>
+                        <ComboBoxItem Content="Стохастик"/>
+                        <ComboBoxItem Content="Облако Ишимоку"/>
                     </ComboBox>
                 </StackPanel>
 
@@ -90,9 +93,14 @@
                             Click="BtnExportPng_Click"/>
                             
                     <Button Content="📊 Данные (CSV)" 
-                            Padding="15,6"
+                            Margin="0,0,10,0" Padding="15,6"
                             Background="#5BC0BE" Foreground="#0B132B"
                             Click="BtnExportCsv_Click"/>
+
+                    <Button Content="📄 Отчёт (PDF)" 
+                            Padding="15,6"
+                            Background="#E63946" Foreground="White"
+                            Click="BtnExportPdf_Click"/>
                 </StackPanel>
             </Grid>
         </Border>

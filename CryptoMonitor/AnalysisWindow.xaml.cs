@@ -6,6 +6,9 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 
 namespace CryptoMonitor
 {
@@ -15,6 +18,9 @@ namespace CryptoMonitor
 
         public AnalysisWindow(List<PricePoint> history)
         {
+            // Установка лицензии QuestPDF (бесплатная версия для сообщества)
+            QuestPDF.Settings.License = LicenseType.Community;
+
             InitializeComponent();
             _history = history;
             AnalysisTypeCombo.SelectionChanged += OnAnalysisChanged;
@@ -125,6 +131,94 @@ namespace CryptoMonitor
                 plt.YLabel("MACD");
                 plt.Axes.AutoScale();
             }
+            else if (selectedIndex == 4) // Parabolic SAR
+            {
+                var sar = CalculateParabolicSAR(prices);
+
+                var pLine = plt.Add.Scatter(times, prices);
+                pLine.Color = ScottPlot.Color.FromHex("#5BC0BE");
+                pLine.LegendText = "Цена";
+
+                // Разделяем SAR на восходящий (ниже цены) и нисходящий (выше цены) тренды
+                var upTimes = new List<double>();
+                var upSar = new List<double>();
+                var downTimes = new List<double>();
+                var downSar = new List<double>();
+
+                for (int i = 0; i < prices.Length; i++)
+                {
+                    if (sar[i] <= prices[i]) { upTimes.Add(times[i]); upSar.Add(sar[i]); }
+                    else { downTimes.Add(times[i]); downSar.Add(sar[i]); }
+                }
+
+                if (upTimes.Count > 0)
+                {
+                    var upDots = plt.Add.Scatter(upTimes.ToArray(), upSar.ToArray());
+                    upDots.LineWidth = 0;
+                    upDots.MarkerSize = 5;
+                    upDots.Color = ScottPlot.Color.FromHex("#4CAF50");
+                    upDots.LegendText = "SAR (↑ тренд)";
+                }
+                if (downTimes.Count > 0)
+                {
+                    var downDots = plt.Add.Scatter(downTimes.ToArray(), downSar.ToArray());
+                    downDots.LineWidth = 0;
+                    downDots.MarkerSize = 5;
+                    downDots.Color = ScottPlot.Color.FromHex("#F44336");
+                    downDots.LegendText = "SAR (↓ тренд)";
+                }
+
+                plt.YLabel("Цена (USD)");
+                plt.Axes.AutoScale();
+            }
+            else if (selectedIndex == 5) // Стохастический осциллятор
+            {
+                var (stochK, stochD) = CalculateStochastic(prices, 14, 3);
+
+                var kLine = plt.Add.Scatter(times, stochK);
+                kLine.Color = ScottPlot.Color.FromHex("#2196F3");
+                kLine.LegendText = "%K (14)";
+
+                var dLine = plt.Add.Scatter(times, stochD);
+                dLine.Color = ScottPlot.Color.FromHex("#FF9800");
+                dLine.LinePattern = LinePattern.Dashed;
+                dLine.LegendText = "%D (3)";
+
+                var overbought = plt.Add.HorizontalLine(80);
+                overbought.Color = ScottPlot.Color.FromHex("#F44336");
+                overbought.LinePattern = LinePattern.Dashed;
+
+                var oversold = plt.Add.HorizontalLine(20);
+                oversold.Color = ScottPlot.Color.FromHex("#4CAF50");
+                oversold.LinePattern = LinePattern.Dashed;
+
+                plt.Axes.SetLimitsY(0, 100);
+                plt.YLabel("Стохастик (%)");
+            }
+            else if (selectedIndex == 6) // Ichimoku Cloud
+            {
+                var (tenkan, kijun, spanA, spanB, chikou) = CalculateIchimoku(prices);
+
+                // Отрисовка облака (заливка между Span A и Span B)
+                var cloud = plt.Add.FillY(times, spanA, spanB);
+                cloud.FillColor = ScottPlot.Color.FromHex("#338D99AE"); // Полупрозрачный серый
+                cloud.LineWidth = 0;
+
+                var tenkanLine = plt.Add.Scatter(times, tenkan);
+                tenkanLine.Color = ScottPlot.Color.FromHex("#2196F3");
+                tenkanLine.LegendText = "Tenkan (9)";
+
+                var kijunLine = plt.Add.Scatter(times, kijun);
+                kijunLine.Color = ScottPlot.Color.FromHex("#F44336");
+                kijunLine.LegendText = "Kijun (26)";
+
+                var pLine = plt.Add.Scatter(times, prices);
+                pLine.Color = ScottPlot.Color.FromHex("#5BC0BE");
+                pLine.LegendText = "Цена";
+
+                plt.YLabel("Цена (USD)");
+                plt.Axes.AutoScale();
+            }
 
             if (AnalysisTypeCombo.SelectedItem is ComboBoxItem item)
             {
@@ -159,21 +253,110 @@ namespace CryptoMonitor
                 var rsi = CalculateRSI(prices, 14);
                 var (_, upper, lower) = CalculateBollingerBands(prices, 20, 2);
                 var (macd, signal, hist) = CalculateMACD(prices, 12, 26, 9);
+                var sar = CalculateParabolicSAR(prices);
+                var (stochK, stochD) = CalculateStochastic(prices, 14, 3);
+                var (tenkan, kijun, spanA, spanB, chikou) = CalculateIchimoku(prices);
 
                 var sb = new StringBuilder();
-                sb.AppendLine("sep=,"); // Force Excel to use comma separator
-                sb.AppendLine("Date,Price_USD,EMA_14,RSI_14,Bollinger_Up,Bollinger_Down,MACD,MACD_Signal,MACD_Hist");
+                sb.AppendLine("sep=,"); 
+                sb.AppendLine("Date,Price_USD,EMA_14,RSI_14,Bollinger_Up,Bollinger_Down,MACD,MACD_Signal,MACD_Hist,Parabolic_SAR,Stoch_K,Stoch_D,Tenkan,Kijun,SpanA,SpanB");
 
                 for (int i = 0; i < _history.Count; i++)
                 {
                     string line = string.Format(System.Globalization.CultureInfo.InvariantCulture,
-                        "{0:yyyy-MM-dd HH:mm},{1:F4},{2:F4},{3:F4},{4:F4},{5:F4},{6:F4},{7:F4},{8:F4}",
-                        _history[i].Time, prices[i], ema[i], rsi[i], upper[i], lower[i], macd[i], signal[i], hist[i]);
+                        "{0:yyyy-MM-dd HH:mm},{1:F4},{2:F4},{3:F4},{4:F4},{5:F4},{6:F4},{7:F4},{8:F4},{9:F4},{10:F4},{11:F4},{12:F4},{13:F4},{14:F4},{15:F4}",
+                        _history[i].Time, prices[i], ema[i], rsi[i], upper[i], lower[i], macd[i], signal[i], hist[i], sar[i], stochK[i], stochD[i], tenkan[i], kijun[i], spanA[i], spanB[i]);
                     sb.AppendLine(line);
                 }
 
                 File.WriteAllText(dlg.FileName, sb.ToString(), new UTF8Encoding(true));
                 MessageBox.Show("Данные (CSV) успешно сохранены!", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
+        private void BtnExportPdf_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new SaveFileDialog { Filter = "PDF Document|*.pdf", FileName = "CryptoAnalysisReport.pdf" };
+            if (dlg.ShowDialog() == true)
+            {
+                try
+                {
+                    // 1. Сохраняем текущий график во временный файл
+                    string tempImagePath = Path.Combine(Path.GetTempPath(), $"chart_{Guid.NewGuid()}.png");
+                    MainPlot.Plot.SavePng(tempImagePath, 1200, 800);
+
+                    // 2. Создаем PDF документ
+                    Document.Create(container =>
+                    {
+                        container.Page(page =>
+                        {
+                            page.Size(PageSizes.A4);
+                            page.Margin(1, Unit.Centimetre);
+                            page.PageColor(QuestPDF.Helpers.Colors.White);
+                            page.DefaultTextStyle(x => x.FontSize(11).FontFamily(QuestPDF.Helpers.Fonts.Verdana));
+
+                            // Заголовок
+                            page.Header().Text("Отчёт по техническому анализу").FontSize(20).Bold().FontColor(QuestPDF.Helpers.Colors.Blue.Medium);
+
+                            page.Content().PaddingVertical(10).Column(col =>
+                            {
+                                col.Spacing(10);
+                                
+                                // Инфо об индикаторе
+                                if (AnalysisTypeCombo.SelectedItem is ComboBoxItem item)
+                                {
+                                    col.Item().Text($"Индикатор: {item.Content}").FontSize(14).Bold();
+                                }
+
+                                col.Item().Text($"Дата формирования: {DateTime.Now:yyyy-MM-dd HH:mm}");
+                                
+                                // График
+                                col.Item().Image(tempImagePath);
+
+                                col.Item().PaddingTop(10).Text("Краткое описание индикатора:").Bold();
+                                col.Item().Text(GetIndicatorDescription());
+
+                                // Таблица цен (последние 10 записей для примера)
+                                col.Item().PaddingTop(20).Text("Последние данные:").Bold();
+                                col.Item().Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.ConstantColumn(150);
+                                        columns.RelativeColumn();
+                                    });
+
+                                    table.Header(header =>
+                                    {
+                                        header.Cell().BorderBottom(1).Padding(5).Text("Дата и время");
+                                        header.Cell().BorderBottom(1).Padding(5).Text("Цена (USD)");
+                                    });
+
+                                    foreach (var point in _history.Skip(Math.Max(0, _history.Count - 20)))
+                                    {
+                                        table.Cell().Padding(5).Text(point.Time.ToString("yyyy-MM-dd HH:mm"));
+                                        table.Cell().Padding(5).Text(point.Price.ToString("F4"));
+                                    }
+                                });
+                            });
+
+                            page.Footer().AlignCenter().Text(x =>
+                            {
+                                x.Span("Стр. ");
+                                x.CurrentPageNumber();
+                            });
+                        });
+                    }).GeneratePdf(dlg.FileName);
+
+                    // 3. Удаляем временный файл
+                    if (File.Exists(tempImagePath)) File.Delete(tempImagePath);
+
+                    MessageBox.Show("PDF-отчёт успешно сформирован!", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Ошибка при создании PDF: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
         }
 
@@ -196,6 +379,20 @@ namespace CryptoMonitor
                      "Пересечение линии MACD и сигнальной линии снизу вверх — сигнал к покупке.\n" +
                      "Пересечение сверху вниз — сигнал к продаже.\n" +
                      "Гистограмма показывает силу текущего тренда.",
+                4 => "Parabolic SAR (Stop and Reverse) — параболическая система на разворот.\n" +
+                     "Зелёные точки ниже цены — восходящий тренд (рекомендация: держать/покупать).\n" +
+                     "Красные точки выше цены — нисходящий тренд (рекомендация: продавать).\n" +
+                     "При пересечении ценой точек SAR происходит смена тренда.",
+                5 => "Стохастический осциллятор — индикатор перекупленности/перепроданности.\n" +
+                     "%K (синяя) — основная линия, %D (оранжевая) — её сигнальная SMA.\n" +
+                     "Зона выше 80 — перекупленность (сигнал к продаже).\n" +
+                     "Зона ниже 20 — перепроданность (сигнал к покупке).\n" +
+                     "Пересечение %K и %D в этих зонах усиливает сигнал.",
+                6 => "Облако Ишимоку (Ichimoku Cloud) — комплексный индикатор тренда.\n" +
+                     "Tenkan-sen (синяя) — линия переворота.\n" +
+                     "Kijun-sen (красная) — основная линия.\n" +
+                     "Облако (Kumo) — пространство между Senkou Span A и B. Если цена выше облака — тренд бычий, ниже — медвежий.\n" +
+                     "Цвет облака показывает потенциальное направление будущего тренда.",
                 _ => "Выберите индикатор для отображения подсказки."
             };
         }
@@ -315,6 +512,149 @@ namespace CryptoMonitor
                 hist[i] = macd[i] - signal[i];
 
             return (macd, signal, hist);
+        }
+
+        private double[] CalculateParabolicSAR(double[] prices, double afStep = 0.02, double afMax = 0.2)
+        {
+            int n = prices.Length;
+            double[] sar = new double[n];
+            if (n < 2) return sar;
+
+            // Начальное направление тренда по первым двум точкам
+            bool isUpTrend = prices[1] >= prices[0];
+            double af = afStep;
+            double ep = isUpTrend ? prices[0] : prices[0]; // Extreme Point
+            sar[0] = prices[0];
+            sar[1] = prices[0];
+
+            for (int i = 2; i < n; i++)
+            {
+                double prevSar = sar[i - 1];
+                double newSar = prevSar + af * (ep - prevSar);
+
+                if (isUpTrend)
+                {
+                    // SAR не должен быть выше двух предыдущих минимумов
+                    newSar = Math.Min(newSar, prices[i - 2]);
+                    newSar = Math.Min(newSar, prices[i - 1]);
+
+                    if (prices[i] < newSar) // Разворот вниз
+                    {
+                        isUpTrend = false;
+                        newSar = ep;
+                        ep = prices[i];
+                        af = afStep;
+                    }
+                    else
+                    {
+                        if (prices[i] > ep) // Новый максимум — ускоряем AF
+                        {
+                            ep = prices[i];
+                            af = Math.Min(af + afStep, afMax);
+                        }
+                    }
+                }
+                else
+                {
+                    // SAR не должен быть ниже двух предыдущих максимумов
+                    newSar = Math.Max(newSar, prices[i - 2]);
+                    newSar = Math.Max(newSar, prices[i - 1]);
+
+                    if (prices[i] > newSar) // Разворот вверх
+                    {
+                        isUpTrend = true;
+                        newSar = ep;
+                        ep = prices[i];
+                        af = afStep;
+                    }
+                    else
+                    {
+                        if (prices[i] < ep) // Новый минимум — ускоряем AF
+                        {
+                            ep = prices[i];
+                            af = Math.Min(af + afStep, afMax);
+                        }
+                    }
+                }
+
+                sar[i] = newSar;
+            }
+
+            return sar;
+        }
+
+        private (double[] k, double[] d) CalculateStochastic(double[] prices, int kPeriod = 14, int dPeriod = 3)
+        {
+            int n = prices.Length;
+            double[] k = new double[n];
+            double[] d = new double[n];
+
+            for (int i = kPeriod - 1; i < n; i++)
+            {
+                double highest = double.MinValue;
+                double lowest = double.MaxValue;
+
+                for (int j = i - kPeriod + 1; j <= i; j++)
+                {
+                    if (prices[j] > highest) highest = prices[j];
+                    if (prices[j] < lowest) lowest = prices[j];
+                }
+
+                double range = highest - lowest;
+                k[i] = range == 0 ? 50.0 : (prices[i] - lowest) / range * 100.0;
+            }
+
+            // %D = dPeriod-периодная SMA от %K
+            for (int i = kPeriod + dPeriod - 2; i < n; i++)
+            {
+                double sum = 0;
+                for (int j = 0; j < dPeriod; j++)
+                    sum += k[i - j];
+                d[i] = sum / dPeriod;
+            }
+
+            return (k, d);
+        }
+
+        private (double[] tenkan, double[] kijun, double[] spanA, double[] spanB, double[] chikou) CalculateIchimoku(double[] prices)
+        {
+            int n = prices.Length;
+            double[] tenkan = new double[n];
+            double[] kijun = new double[n];
+            double[] spanA = new double[n];
+            double[] spanB = new double[n];
+            double[] chikou = new double[n];
+
+            for (int i = 0; i < n; i++)
+            {
+                tenkan[i] = CalculateMidPrice(prices, i, 9);
+                kijun[i] = CalculateMidPrice(prices, i, 26);
+                
+                // Senkou Span A = (Tenkan + Kijun) / 2
+                spanA[i] = (tenkan[i] + kijun[i]) / 2;
+                
+                // Senkou Span B = (52-period high + 52-period low) / 2
+                spanB[i] = CalculateMidPrice(prices, i, 52);
+                
+                // Chikou Span = Close shifted back 26 periods
+                if (i + 26 < n) chikou[i] = prices[i + 26];
+                else chikou[i] = prices[i];
+            }
+
+            return (tenkan, kijun, spanA, spanB, chikou);
+        }
+
+        private double CalculateMidPrice(double[] prices, int index, int period)
+        {
+            if (index < period - 1) return prices[index];
+            double high = double.MinValue;
+            double low = double.MaxValue;
+            for (int j = index - period + 1; j <= index; j++)
+            {
+                if (prices[j] > high) high = prices[j];
+                if (prices[j] < low) low = prices[j];
+            }
+            return (high + low) / 2;
         }
     }
 }
