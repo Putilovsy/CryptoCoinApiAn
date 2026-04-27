@@ -76,7 +76,8 @@
                                 </Style.Triggers>
                             </Style>
                         </ComboBox.ItemContainerStyle>
-                        <ComboBoxItem Content="Цена + SMA/EMA" IsSelected="True"/>
+                        <ComboBoxItem Content="Объем торгов" IsSelected="True"/>
+                        <ComboBoxItem Content="Цена + SMA/EMA"/>
                         <ComboBoxItem Content="Полосы Боллинджера"/>
                         <ComboBoxItem Content="Индикатор RSI"/>
                         <ComboBoxItem Content="Индикатор MACD"/>

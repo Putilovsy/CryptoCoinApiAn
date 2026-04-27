@@ -59,7 +59,23 @@ namespace CryptoMonitor
 
             int selectedIndex = AnalysisTypeCombo.SelectedIndex;
 
-            if (selectedIndex == 0) // Цена + EMA
+            if (selectedIndex == 0) // Объем торгов
+            {
+                double[] volumes = _history.Select(x => x.Volume).ToArray();
+                double[] zeros = new double[times.Length];
+
+                var fill = plt.Add.FillY(times, zeros, volumes);
+                fill.FillColor = ScottPlot.Color.FromHex("#552196F3");
+                fill.LineWidth = 0;
+                
+                var vLine = plt.Add.Scatter(times, volumes);
+                vLine.Color = ScottPlot.Color.FromHex("#2196F3");
+                vLine.LegendText = "Объем торгов";
+
+                plt.YLabel("Объем (USD)");
+                plt.Axes.AutoScale();
+            }
+            else if (selectedIndex == 1) // Цена + EMA
             {
                 var pLine = plt.Add.Scatter(times, prices);
                 pLine.Color = ScottPlot.Color.FromHex("#5BC0BE");
@@ -73,7 +89,7 @@ namespace CryptoMonitor
                 plt.YLabel("Цена (USD)");
                 plt.Axes.AutoScale();
             }
-            else if (selectedIndex == 1) // Полосы Боллинджера
+            else if (selectedIndex == 2) // Полосы Боллинджера
             {
                 var (sma, upper, lower) = CalculateBollingerBands(prices, 20, 2);
                 
@@ -93,7 +109,7 @@ namespace CryptoMonitor
                 plt.YLabel("Цена (USD)");
                 plt.Axes.AutoScale();
             }
-            else if (selectedIndex == 2) // RSI
+            else if (selectedIndex == 3) // RSI
             {
                 var rsi = CalculateRSI(prices, 14);
                 var rsiLine = plt.Add.Scatter(times, rsi);
@@ -111,7 +127,7 @@ namespace CryptoMonitor
                 plt.Axes.SetLimitsY(0, 100);
                 plt.YLabel("Индекс RSI");
             }
-            else if (selectedIndex == 3) // MACD
+            else if (selectedIndex == 4) // MACD
             {
                 var (macd, signal, hist) = CalculateMACD(prices, 12, 26, 9);
                 
@@ -131,7 +147,7 @@ namespace CryptoMonitor
                 plt.YLabel("MACD");
                 plt.Axes.AutoScale();
             }
-            else if (selectedIndex == 4) // Parabolic SAR
+            else if (selectedIndex == 5) // Parabolic SAR
             {
                 var sar = CalculateParabolicSAR(prices);
 
@@ -171,7 +187,7 @@ namespace CryptoMonitor
                 plt.YLabel("Цена (USD)");
                 plt.Axes.AutoScale();
             }
-            else if (selectedIndex == 5) // Стохастический осциллятор
+            else if (selectedIndex == 6) // Стохастический осциллятор
             {
                 var (stochK, stochD) = CalculateStochastic(prices, 14, 3);
 
@@ -195,7 +211,7 @@ namespace CryptoMonitor
                 plt.Axes.SetLimitsY(0, 100);
                 plt.YLabel("Стохастик (%)");
             }
-            else if (selectedIndex == 6) // Ichimoku Cloud
+            else if (selectedIndex == 7) // Ichimoku Cloud
             {
                 var (tenkan, kijun, spanA, spanB, chikou) = CalculateIchimoku(prices);
 
@@ -365,30 +381,33 @@ namespace CryptoMonitor
             int idx = AnalysisTypeCombo.SelectedIndex;
             return idx switch
             {
-                0 => "EMA (Exponential Moving Average) — экспоненциальная скользящая средняя.\n" +
+                0 => "Объем торгов (Trading Volume) — показывает количество монет, перешедших из рук в руки за период.\n" +
+                     "Высокий объем подтверждает силу текущего тренда.\n" +
+                     "Падающий объем может сигнализировать об ослаблении интереса.",
+                1 => "EMA (Exponential Moving Average) — экспоненциальная скользящая средняя.\n" +
                      "Показывает среднюю цену за период с большим весом последних данных.\n" +
                      "Помогает определить направление тренда: если цена выше EMA — тренд восходящий, ниже — нисходящий.",
-                1 => "Полосы Боллинджера — индикатор волатильности рынка.\n" +
+                2 => "Полосы Боллинджера — индикатор волатильности рынка.\n" +
                      "Сужение полос означает спокойный рынок, расширение — рост волатильности.\n" +
                      "Пробитие верхней полосы может сигнализировать о перекупленности,\nнижней — о перепроданности актива.",
-                2 => "RSI (Relative Strength Index) — индекс относительной силы.\n" +
+                3 => "RSI (Relative Strength Index) — индекс относительной силы.\n" +
                      "Значение выше 70 — актив перекуплен (возможен разворот вниз).\n" +
                      "Значение ниже 30 — актив перепродан (возможен разворот вверх).\n" +
                      "Диапазон 30–70 считается нейтральной зоной.",
-                3 => "MACD (Moving Average Convergence/Divergence) — схождение/расхождение скользящих средних.\n" +
+                4 => "MACD (Moving Average Convergence/Divergence) — схождение/расхождение скользящих средних.\n" +
                      "Пересечение линии MACD и сигнальной линии снизу вверх — сигнал к покупке.\n" +
                      "Пересечение сверху вниз — сигнал к продаже.\n" +
                      "Гистограмма показывает силу текущего тренда.",
-                4 => "Parabolic SAR (Stop and Reverse) — параболическая система на разворот.\n" +
+                5 => "Parabolic SAR (Stop and Reverse) — параболическая система на разворот.\n" +
                      "Зелёные точки ниже цены — восходящий тренд (рекомендация: держать/покупать).\n" +
                      "Красные точки выше цены — нисходящий тренд (рекомендация: продавать).\n" +
                      "При пересечении ценой точек SAR происходит смена тренда.",
-                5 => "Стохастический осциллятор — индикатор перекупленности/перепроданности.\n" +
+                6 => "Стохастический осциллятор — индикатор перекупленности/перепроданности.\n" +
                      "%K (синяя) — основная линия, %D (оранжевая) — её сигнальная SMA.\n" +
                      "Зона выше 80 — перекупленность (сигнал к продаже).\n" +
                      "Зона ниже 20 — перепроданность (сигнал к покупке).\n" +
                      "Пересечение %K и %D в этих зонах усиливает сигнал.",
-                6 => "Облако Ишимоку (Ichimoku Cloud) — комплексный индикатор тренда.\n" +
+                7 => "Облако Ишимоку (Ichimoku Cloud) — комплексный индикатор тренда.\n" +
                      "Tenkan-sen (синяя) — линия переворота.\n" +
                      "Kijun-sen (красная) — основная линия.\n" +
                      "Облако (Kumo) — пространство между Senkou Span A и B. Если цена выше облака — тренд бычий, ниже — медвежий.\n" +

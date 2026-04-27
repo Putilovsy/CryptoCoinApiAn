@@ -75,14 +75,23 @@ namespace CryptoMonitor.Services
 
             if (data?.Prices != null)
             {
-                foreach (var point in data.Prices)
+                var vols = data.TotalVolumes;
+                for (int i = 0; i < data.Prices.Count; i++)
                 {
+                    var point = data.Prices[i];
+                    double volume = 0;
+                    if (vols != null && i < vols.Count && vols[i].Count >= 2)
+                    {
+                        volume = vols[i][1];
+                    }
+
                     result.Add(new PricePoint
                     {
                         Time = DateTimeOffset
                             .FromUnixTimeMilliseconds((long)point[0])
                             .LocalDateTime,
-                        Price = point[1]
+                        Price = point[1],
+                        Volume = volume
                     });
                 }
             }

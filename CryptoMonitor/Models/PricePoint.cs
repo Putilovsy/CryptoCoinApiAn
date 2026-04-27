@@ -13,6 +13,9 @@ namespace CryptoMonitor.Models
     {
         [JsonConverter(typeof(SafeDoubleConverter))]
         public double Price { get; set; }
+        
+        [JsonConverter(typeof(SafeDoubleConverter))]
+        public double Volume { get; set; }
         public DateTime Time { get; set; }
     }
 
@@ -20,5 +23,8 @@ namespace CryptoMonitor.Models
     {
         [JsonProperty("prices")]
         public List<List<double>> ? Prices { get; set; }
+        
+        [JsonProperty("total_volumes")]
+        public List<List<double>> ? TotalVolumes { get; set; }
     }
 }
