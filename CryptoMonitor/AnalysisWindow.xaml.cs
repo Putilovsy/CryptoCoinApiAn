@@ -75,16 +75,21 @@ namespace CryptoMonitor
                 plt.YLabel("Объем (USD)");
                 plt.Axes.AutoScale();
             }
-            else if (selectedIndex == 1) // Цена + EMA
+            else if (selectedIndex == 1) // Цена + EMA + SMA
             {
                 var pLine = plt.Add.Scatter(times, prices);
-                pLine.Color = ScottPlot.Color.FromHex("#5BC0BE");
+                pLine.Color = ScottPlot.Color.FromHex("#FFFFFF"); // Белый для контраста
                 pLine.LegendText = "Цена";
 
                 var ema = ExponentialMovingAverage(prices, 14);
                 var emaLine = plt.Add.Scatter(times, ema);
                 emaLine.Color = ScottPlot.Color.FromHex("#FF9800");
                 emaLine.LegendText = "EMA 14";
+
+                var sma = SimpleMovingAverage(prices, 14);
+                var smaLine = plt.Add.Scatter(times, sma);
+                smaLine.Color = ScottPlot.Color.FromHex("#9C27B0");
+                smaLine.LegendText = "SMA 14";
 
                 plt.YLabel("Цена (USD)");
                 plt.Axes.AutoScale();
@@ -94,8 +99,16 @@ namespace CryptoMonitor
                 var (sma, upper, lower) = CalculateBollingerBands(prices, 20, 2);
                 
                 var fill = plt.Add.FillY(times, lower, upper);
-                fill.FillColor = ScottPlot.Color.FromHex("#33FF9800");
+                fill.FillColor = ScottPlot.Color.FromHex("#339E9E9E"); // Прозрачный серый
                 fill.LineWidth = 0;
+
+                var upperLine = plt.Add.Scatter(times, upper);
+                upperLine.Color = ScottPlot.Color.FromHex("#9E9E9E"); // Серый
+                upperLine.LegendText = "Верхняя полоса";
+
+                var lowerLine = plt.Add.Scatter(times, lower);
+                lowerLine.Color = ScottPlot.Color.FromHex("#9E9E9E"); // Серый
+                lowerLine.LegendText = "Нижняя полоса";
                 
                 var smaLine = plt.Add.Scatter(times, sma);
                 smaLine.Color = ScottPlot.Color.FromHex("#FF9800");
@@ -103,7 +116,7 @@ namespace CryptoMonitor
                 smaLine.LegendText = "SMA 20";
 
                 var pLine = plt.Add.Scatter(times, prices);
-                pLine.Color = ScottPlot.Color.FromHex("#5BC0BE");
+                pLine.Color = ScottPlot.Color.FromHex("#FFFFFF"); // Белый для контраста
                 pLine.LegendText = "Цена";
 
                 plt.YLabel("Цена (USD)");
@@ -152,7 +165,7 @@ namespace CryptoMonitor
                 var sar = CalculateParabolicSAR(prices);
 
                 var pLine = plt.Add.Scatter(times, prices);
-                pLine.Color = ScottPlot.Color.FromHex("#5BC0BE");
+                pLine.Color = ScottPlot.Color.FromHex("#FFFFFF"); // Белый для контраста
                 pLine.LegendText = "Цена";
 
                 // Разделяем SAR на восходящий (ниже цены) и нисходящий (выше цены) тренды
@@ -215,10 +228,37 @@ namespace CryptoMonitor
             {
                 var (tenkan, kijun, spanA, spanB, chikou) = CalculateIchimoku(prices);
 
-                // Отрисовка облака (заливка между Span A и Span B)
-                var cloud = plt.Add.FillY(times, spanA, spanB);
-                cloud.FillColor = ScottPlot.Color.FromHex("#338D99AE"); // Полупрозрачный серый
-                cloud.LineWidth = 0;
+                // Отрисовка облака (заливка между Span A и Span B с разделением на цвета)
+                double[] bullTop = new double[times.Length];
+                double[] bullBot = new double[times.Length];
+                double[] bearTop = new double[times.Length];
+                double[] bearBot = new double[times.Length];
+
+                for (int i = 0; i < times.Length; i++)
+                {
+                    if (spanA[i] >= spanB[i])
+                    {
+                        bullTop[i] = spanA[i];
+                        bullBot[i] = spanB[i];
+                        bearTop[i] = spanB[i];
+                        bearBot[i] = spanB[i];
+                    }
+                    else
+                    {
+                        bullTop[i] = spanA[i];
+                        bullBot[i] = spanA[i];
+                        bearTop[i] = spanB[i];
+                        bearBot[i] = spanA[i];
+                    }
+                }
+
+                var bullCloud = plt.Add.FillY(times, bullBot, bullTop);
+                bullCloud.FillColor = new ScottPlot.Color(76, 175, 80, 85); // Явно заданный Зеленый (R, G, B, Alpha)
+                bullCloud.LineWidth = 0;
+
+                var bearCloud = plt.Add.FillY(times, bearBot, bearTop);
+                bearCloud.FillColor = new ScottPlot.Color(255, 51, 51, 85); // Явно заданный Красный (R, G, B, Alpha)
+                bearCloud.LineWidth = 0;
 
                 var tenkanLine = plt.Add.Scatter(times, tenkan);
                 tenkanLine.Color = ScottPlot.Color.FromHex("#2196F3");
@@ -229,7 +269,7 @@ namespace CryptoMonitor
                 kijunLine.LegendText = "Kijun (26)";
 
                 var pLine = plt.Add.Scatter(times, prices);
-                pLine.Color = ScottPlot.Color.FromHex("#5BC0BE");
+                pLine.Color = ScottPlot.Color.FromHex("#FFFFFF"); // Белый для контраста
                 pLine.LegendText = "Цена";
 
                 plt.YLabel("Цена (USD)");
@@ -384,9 +424,9 @@ namespace CryptoMonitor
                 0 => "Объем торгов (Trading Volume) — показывает количество монет, перешедших из рук в руки за период.\n" +
                      "Высокий объем подтверждает силу текущего тренда.\n" +
                      "Падающий объем может сигнализировать об ослаблении интереса.",
-                1 => "EMA (Exponential Moving Average) — экспоненциальная скользящая средняя.\n" +
-                     "Показывает среднюю цену за период с большим весом последних данных.\n" +
-                     "Помогает определить направление тренда: если цена выше EMA — тренд восходящий, ниже — нисходящий.",
+                1 => "EMA и SMA (Exponential / Simple Moving Average) — скользящие средние.\n" +
+                     "SMA показывает обычное среднее за период, а EMA придает больший вес последним данным.\n" +
+                     "Разница между ними помогает оценить импульс: если EMA выше SMA, импульс растет.",
                 2 => "Полосы Боллинджера — индикатор волатильности рынка.\n" +
                      "Сужение полос означает спокойный рынок, расширение — рост волатильности.\n" +
                      "Пробитие верхней полосы может сигнализировать о перекупленности,\nнижней — о перепроданности актива.",
@@ -410,8 +450,8 @@ namespace CryptoMonitor
                 7 => "Облако Ишимоку (Ichimoku Cloud) — комплексный индикатор тренда.\n" +
                      "Tenkan-sen (синяя) — линия переворота.\n" +
                      "Kijun-sen (красная) — основная линия.\n" +
-                     "Облако (Kumo) — пространство между Senkou Span A и B. Если цена выше облака — тренд бычий, ниже — медвежий.\n" +
-                     "Цвет облака показывает потенциальное направление будущего тренда.",
+                     "Облако (Kumo) — пространство между Senkou Span A и B.\n" +
+                     "Зеленое облако указывает на бычий тренд, красное — на медвежий.",
                 _ => "Выберите индикатор для отображения подсказки."
             };
         }
@@ -428,6 +468,24 @@ namespace CryptoMonitor
         }
 
         // --- Индикаторы ---
+        private double[] SimpleMovingAverage(double[] prices, int period)
+        {
+            double[] sma = new double[prices.Length];
+            for (int i = 0; i < prices.Length; i++)
+            {
+                if (i < period - 1)
+                {
+                    sma[i] = prices[i];
+                    continue;
+                }
+                double sum = 0;
+                for (int j = 0; j < period; j++)
+                    sum += prices[i - j];
+                sma[i] = sum / period;
+            }
+            return sma;
+        }
+
         private double[] ExponentialMovingAverage(double[] prices, int period)
         {
             double[] ema = new double[prices.Length];
