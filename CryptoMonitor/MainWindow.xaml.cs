@@ -1,5 +1,7 @@
 using CryptoMonitor.Models;
 using CryptoMonitor.ViewModels;
+using System;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -101,6 +103,33 @@ namespace CryptoMonitor
             ApplyDarkStyle(plt);
 
             CryptoPlot.Refresh();
+        }
+
+        private DateTime _lastUpdateTime = DateTime.MinValue;
+
+        private async void RefreshChartBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (DateTime.Now - _lastUpdateTime < TimeSpan.FromMinutes(5))
+            {
+                ShowUpdateHint();
+                return;
+            }
+
+            _lastUpdateTime = DateTime.Now;
+            await _vm.RefreshCurrentCoinHistory();
+        }
+
+        private async void ShowUpdateHint()
+        {
+            UpdateHintBorder.Opacity = 1;
+            await Task.Delay(2500);
+            
+            for (double i = 1.0; i >= 0; i -= 0.1)
+            {
+                UpdateHintBorder.Opacity = i;
+                await Task.Delay(30);
+            }
+            UpdateHintBorder.Opacity = 0;
         }
 
         private void ToggleChartBtn_Click(object sender, RoutedEventArgs e)

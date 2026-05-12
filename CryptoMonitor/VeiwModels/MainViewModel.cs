@@ -332,6 +332,28 @@ namespace CryptoMonitor.ViewModels
             }
         }
 
+        public async Task RefreshCurrentCoinHistory()
+        {
+            if (string.IsNullOrEmpty(_currentCoinId)) return;
+            
+            _cts?.Cancel();
+            _cts = new CancellationTokenSource();
+            var token = _cts.Token;
+
+            IsLoadingCoins = true;
+            LoadingMessage = "Обновление графика...";
+            
+            try
+            {
+                await ProcessHistoryLoadAsync(_currentCoinId, true, token);
+            }
+            finally
+            {
+                if (_cts.Token == token)
+                    IsLoadingCoins = false;
+            }
+        }
+
         private async Task OpenAnalysis()
         {
             if (History == null || History.Count == 0)

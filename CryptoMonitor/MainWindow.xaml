@@ -239,15 +239,47 @@
                     <RadioButton Content="1 Год" IsChecked="{Binding SelectedDays, Converter={StaticResource EqualityConverter}, ConverterParameter=365}"/>
                 </StackPanel>
 
-                <Button x:Name="ToggleChartBtn"
-                        Content="📊 В свечи"
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Top"
-                        Margin="0,15,15,0"
-                        Padding="15,6"
-                        FontSize="12"
-                        Background="#2B3655"
-                        Click="ToggleChartBtn_Click"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,15,15,0">
+                    <Button x:Name="RefreshChartBtn"
+                            Width="30" Height="30"
+                            Margin="0,0,10,0"
+                            ToolTip="Обновить график"
+                            Click="RefreshChartBtn_Click"
+                            Foreground="{StaticResource TextMain}"
+                            Cursor="Hand">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="border" Background="#2B3655" CornerRadius="15">
+                                    <TextBlock Text="⟳" Foreground="{TemplateBinding Foreground}" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-3,0,0"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="border" Property="Background" Value="{StaticResource AccentHover}"/>
+                                        <Setter Property="Foreground" Value="#0B132B"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                    
+                    <Button x:Name="ToggleChartBtn"
+                            Content="📊 В свечи"
+                            Padding="15,6"
+                            FontSize="12"
+                            Background="#2B3655"
+                            Click="ToggleChartBtn_Click"/>
+                </StackPanel>
+
+                <!-- Подсказка об обновлении (защита от спама) -->
+                <Border x:Name="UpdateHintBorder"
+                        HorizontalAlignment="Right" VerticalAlignment="Top"
+                        Margin="0,55,15,0"
+                        Background="#334CAF50"
+                        BorderBrush="#4CAF50" BorderThickness="1"
+                        CornerRadius="6" Padding="15,6"
+                        Opacity="0" IsHitTestVisible="False">
+                    <TextBlock Text="Данные уже обновлены" Foreground="White" FontSize="12" FontWeight="SemiBold"/>
+                </Border>
             </Grid>
         </Border>
 
