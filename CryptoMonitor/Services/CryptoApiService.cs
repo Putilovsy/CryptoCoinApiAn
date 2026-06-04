@@ -66,7 +66,7 @@ namespace CryptoMonitor.Services
 
             var response = await SendRequestAsync(url, token);
             if (response == null)
-                return new List<PricePoint>();
+                return null;
 
             string json = await response.Content.ReadAsStringAsync();
             var data = JsonConvert.DeserializeObject<MarketChartResponse>(json);
@@ -123,15 +123,33 @@ namespace CryptoMonitor.Services
 
                 if (response.StatusCode == HttpStatusCode.TooManyRequests)
                 {
-                    // При 429 даем API "остыть"
-                    await Task.Delay(5000, token);
+                    int delayMs = 5000;
+                    
+                    if (response.Headers.RetryAfter != null)
+                    {
+                        if (response.Headers.RetryAfter.Delta.HasValue)
+                        {
+                            delayMs = (int)response.Headers.RetryAfter.Delta.Value.TotalMilliseconds;
+                        }
+                        else if (response.Headers.RetryAfter.Date.HasValue)
+                        {
+                            delayMs = (int)(response.Headers.RetryAfter.Date.Value - DateTimeOffset.UtcNow).TotalMilliseconds;
+                        }
+                        
+                        if (delayMs > 10000) return null;
+                        if (delayMs < 5000) delayMs = 5000;
+                    }
+
+                    await Task.Delay(delayMs, token);
                     response = await _httpClient.GetAsync(url, token);
                     _lastRequestTime = DateTime.UtcNow;
                     
                     if (response.StatusCode == HttpStatusCode.TooManyRequests)
                     {
-                        // Вторая попытка
-                        await Task.Delay(10000, token);
+                        int secondDelay = delayMs * 2;
+                        if (secondDelay > 15000) return null;
+
+                        await Task.Delay(secondDelay, token);
                         response = await _httpClient.GetAsync(url, token);
                         _lastRequestTime = DateTime.UtcNow;
 

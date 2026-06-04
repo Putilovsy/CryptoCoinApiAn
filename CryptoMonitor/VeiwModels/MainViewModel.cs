@@ -19,6 +19,8 @@ namespace CryptoMonitor.ViewModels
         private string _currentCoinId = "";
         private CancellationTokenSource _cts;
 
+        public event Action RateLimitReached;
+
         public ObservableCollection<CryptoCoin> Coins { get; set; } = new();
         public ICollectionView FilteredCoins { get; private set; }
 
@@ -120,7 +122,6 @@ namespace CryptoMonitor.ViewModels
             }
         }
 
-        // Вызов при выборе другой монеты
         private async Task SwitchCoinAsync(string coinId)
         {
             if (string.IsNullOrEmpty(coinId)) return;
@@ -132,10 +133,25 @@ namespace CryptoMonitor.ViewModels
             IsLoadingCoins = true;
             LoadingMessage = "Загрузка графика...";
 
-            await ProcessHistoryLoadAsync(coinId, false, token);
+            bool success = false;
+            while (!success && !token.IsCancellationRequested)
+            {
+                success = await ProcessHistoryLoadAsync(coinId, false, token);
 
-            if (_cts.Token == token)
-                IsLoadingCoins = false;
+                if (token.IsCancellationRequested)
+                    break;
+
+                if (success)
+                {
+                    IsLoadingCoins = false;
+                }
+                else
+                {
+                    LoadingMessage = "Лимит API. Ожидание...";
+                    try { await Task.Delay(15000, token); }
+                    catch (TaskCanceledException) { break; }
+                }
+            }
         }
 
         // Вызов при переключении таймфрейма (с дебаунсом)
@@ -151,14 +167,26 @@ namespace CryptoMonitor.ViewModels
             try
             {
                 await Task.Delay(500, token); 
-                await ProcessHistoryLoadAsync(_currentCoinId, true, token);
+                
+                bool success = false;
+                while (!success && !token.IsCancellationRequested)
+                {
+                    success = await ProcessHistoryLoadAsync(_currentCoinId, true, token);
+                    
+                    if (token.IsCancellationRequested) break;
+
+                    if (success)
+                    {
+                        IsLoadingCoins = false;
+                    }
+                    else
+                    {
+                        LoadingMessage = "Лимит API. Ожидание...";
+                        await Task.Delay(15000, token);
+                    }
+                }
             }
             catch (TaskCanceledException) { }
-            finally
-            {
-                if (_cts.Token == token)
-                    IsLoadingCoins = false;
-            }
         }
 
         public TimeSpan CurrentOhlcSpan { get; private set; } = TimeSpan.FromHours(4);
@@ -280,10 +308,10 @@ namespace CryptoMonitor.ViewModels
             }
         }
 
-        private async Task ProcessHistoryLoadAsync(string coinId, bool forceRefresh, CancellationToken token)
+        private async Task<bool> ProcessHistoryLoadAsync(string coinId, bool forceRefresh, CancellationToken token)
         {
             if (string.IsNullOrEmpty(coinId))
-                return;
+                return false;
 
             _currentCoinId = coinId;
             string cacheKey = $"{coinId}_{SelectedDays}";
@@ -293,7 +321,7 @@ namespace CryptoMonitor.ViewModels
                 CurrentOhlcSpan = cached.Span;
                 History = cached.History;
                 Ohlc = cached.Ohlc;
-                return;
+                return true;
             }
 
             try
@@ -303,12 +331,13 @@ namespace CryptoMonitor.ViewModels
                 var history = await _service.GetCoinHistoryAsync(coinId, token, SelectedDays);
 
                 if (token.IsCancellationRequested || _currentCoinId != coinId) 
-                    return;
+                    return false;
 
-                if (history == null || history.Count == 0)
+                if (history == null)
                 {
                     System.Diagnostics.Debug.WriteLine($"Пустой результат от API для {cacheKey} (Возможно 429 Limit)");
-                    return;
+                    RateLimitReached?.Invoke();
+                    return false;
                 }
 
                 TimeSpan span = TimeSpan.FromHours(4);
@@ -324,11 +353,13 @@ namespace CryptoMonitor.ViewModels
                 _dataCache[cacheKey] = (History, Ohlc, span);
 
                 System.Diagnostics.Debug.WriteLine($"Данные загружены для {cacheKey}: History:{History.Count}, Ohlc:{Ohlc.Count}");
+                return true;
             }
-            catch (TaskCanceledException) { }
+            catch (TaskCanceledException) { return false; }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Ошибка загрузки {coinId}: {ex.Message}");
+                return false;
             }
         }
 
@@ -345,13 +376,25 @@ namespace CryptoMonitor.ViewModels
             
             try
             {
-                await ProcessHistoryLoadAsync(_currentCoinId, true, token);
+                bool success = false;
+                while (!success && !token.IsCancellationRequested)
+                {
+                    success = await ProcessHistoryLoadAsync(_currentCoinId, true, token);
+                    
+                    if (token.IsCancellationRequested) break;
+
+                    if (success)
+                    {
+                        IsLoadingCoins = false;
+                    }
+                    else
+                    {
+                        LoadingMessage = "Лимит API. Ожидание...";
+                        await Task.Delay(15000, token);
+                    }
+                }
             }
-            finally
-            {
-                if (_cts.Token == token)
-                    IsLoadingCoins = false;
-            }
+            catch (TaskCanceledException) { }
         }
 
         private async Task OpenAnalysis()

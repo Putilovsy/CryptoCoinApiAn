@@ -18,6 +18,8 @@ namespace CryptoMonitor
             DataContext = _vm;
 
             Loaded += async (_, _) => await _vm.LoadCoins();
+            
+            _vm.RateLimitReached += ShowRateLimitHint;
 
             _vm.PropertyChanged += (s, e) =>
             {
@@ -130,6 +132,19 @@ namespace CryptoMonitor
                 await Task.Delay(30);
             }
             UpdateHintBorder.Opacity = 0;
+        }
+
+        private async void ShowRateLimitHint()
+        {
+            RateLimitHintBorder.Opacity = 1;
+            await Task.Delay(2500);
+            
+            for (double i = 1.0; i >= 0; i -= 0.1)
+            {
+                RateLimitHintBorder.Opacity = i;
+                await Task.Delay(30);
+            }
+            RateLimitHintBorder.Opacity = 0;
         }
 
         private void ToggleChartBtn_Click(object sender, RoutedEventArgs e)

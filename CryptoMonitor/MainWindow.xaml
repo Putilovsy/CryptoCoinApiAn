@@ -280,11 +280,23 @@
                         Opacity="0" IsHitTestVisible="False">
                     <TextBlock Text="Данные уже обновлены" Foreground="White" FontSize="12" FontWeight="SemiBold"/>
                 </Border>
+
+                <!-- Подсказка о достижении лимита API (красная) -->
+                <Border x:Name="RateLimitHintBorder"
+                        HorizontalAlignment="Right" VerticalAlignment="Top"
+                        Margin="0,55,15,0"
+                        Background="#33F44336"
+                        BorderBrush="#F44336" BorderThickness="1"
+                        CornerRadius="6" Padding="15,6"
+                        Opacity="0" IsHitTestVisible="False">
+                    <TextBlock Text="Лимит запросов API!" Foreground="White" FontSize="12" FontWeight="SemiBold"/>
+                </Border>
             </Grid>
         </Border>
 
         <!-- Loading overlay -->
-        <Border Grid.ColumnSpan="2" Grid.RowSpan="2"
+        <Border Grid.Column="1" Grid.RowSpan="2"
+                Margin="10,5,5,5" CornerRadius="8"
                 Background="#B30B132B"
                 Visibility="{Binding IsLoadingCoins, Converter={StaticResource BoolToVisibility}}">
             <Border Background="{StaticResource PanelDark}"
