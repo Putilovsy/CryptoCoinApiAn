@@ -268,6 +268,11 @@ namespace CryptoMonitor
                 kijunLine.Color = ScottPlot.Color.FromHex("#F44336");
                 kijunLine.LegendText = "Kijun (26)";
 
+                var chikouLine = plt.Add.Scatter(times, chikou);
+                chikouLine.Color = ScottPlot.Color.FromHex("#66BB6A");
+                chikouLine.LinePattern = LinePattern.Dashed;
+                chikouLine.LegendText = "Chikou (26)";
+
                 var pLine = plt.Add.Scatter(times, prices);
                 pLine.Color = ScottPlot.Color.FromHex("#FFFFFF"); // Белый для контраста
                 pLine.LegendText = "Цена";

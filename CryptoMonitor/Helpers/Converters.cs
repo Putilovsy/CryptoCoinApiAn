@@ -13,11 +13,11 @@ namespace CryptoMonitor.Helpers
             {
                 decimal val = value is decimal dec ? dec : (decimal)(double)value;
                 if (val > 0)
-                    return new SolidColorBrush(Color.FromRgb(85, 192, 155)); // Accent Green
+                    return new SolidColorBrush(Color.FromRgb(85, 192, 155)); 
                 if (val < 0)
-                    return new SolidColorBrush(Color.FromRgb(244, 67, 54));  // Accent Red
+                    return new SolidColorBrush(Color.FromRgb(244, 67, 54));
             }
-            return new SolidColorBrush(Color.FromRgb(224, 225, 221)); // TextMain
+            return new SolidColorBrush(Color.FromRgb(224, 225, 221));
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;

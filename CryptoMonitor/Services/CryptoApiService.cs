@@ -33,7 +33,7 @@ namespace CryptoMonitor.Services
         }
 
         /// <summary>
-        /// Получает список топ монет.
+        /// Получает топ монет.
         /// </summary>
         public async Task<List<CryptoCoin>> GetTopCoinsAsync(CancellationToken token, int count = 100)
         {
